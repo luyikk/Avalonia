@@ -19,7 +19,7 @@ namespace Avalonia.Controls
     /// collection changes and keeps the selected indices up to date. This can either be a leaf
     /// node or a non leaf node.
     /// </remarks>
-    internal class SelectionNode
+    internal class SelectionNode : IDisposable
     {
         private readonly SelectionModel _manager;
         private readonly List<SelectionNode> _childrenNodes = new List<SelectionNode>();
@@ -272,6 +272,12 @@ namespace Avalonia.Controls
             }
         }
 
+        public void Dispose()
+        {
+            _dataSource?.Dispose();
+            UnhookCollectionChangedHandler();
+        }
+
         public bool Select(int index, bool select)
         {
             return Select(index, select, raiseOnSelectionChanged: true);
@@ -448,6 +454,11 @@ namespace Avalonia.Controls
             // This will throw away all the children SelectionNodes
             // causing them to be unhooked from their data source. This
             // essentially cleans up the tree.
+            foreach (var child in _childrenNodes)
+            {
+                child?.Dispose();
+            }
+
             _childrenNodes.Clear();
         }
 

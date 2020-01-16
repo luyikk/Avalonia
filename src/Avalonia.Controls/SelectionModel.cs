@@ -293,6 +293,7 @@ namespace Avalonia.Controls
         public void Dispose()
         {
             ClearSelection(resetAnchor: false, raiseSelectionChanged: false);
+            _rootNode?.Dispose();
             _rootNode = null;
             SharedLeafNode = null;
             _selectedIndicesCached = null;

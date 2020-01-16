@@ -8,6 +8,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Avalonia.Collections;
+using Avalonia.Diagnostics;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -792,7 +794,7 @@ namespace Avalonia.Controls.UnitTests
 
                 Log.Comment("Inserting 1.0");
                 selectionChangedRaised = false;
-                (data[1] as ObservableCollection<object>).Insert(0, 100);
+                (data[1] as AvaloniaList<object>).Insert(0, 100);
                 Assert.True(selectionChangedRaised, "SelectionChanged event was not raised");
                 ValidateSelection(selectionModel,
                    new List<IndexPath>()
@@ -809,7 +811,7 @@ namespace Avalonia.Controls.UnitTests
 
                 Log.Comment("Removing 1.0");
                 selectionChangedRaised = false;
-                (data[1] as ObservableCollection<object>).RemoveAt(0);
+                (data[1] as AvaloniaList<object>).RemoveAt(0);
                 Assert.True(selectionChangedRaised, "SelectionChanged event was not raised");
                 ValidateSelection(selectionModel,
                    new List<IndexPath>()
@@ -1230,6 +1232,60 @@ namespace Avalonia.Controls.UnitTests
             Assert.Equal(0, raised);
         }
 
+        [Fact]
+        public void Disposing_Unhooks_CollectionChanged_Handlers()
+        {
+            var data = CreateNestedData(2, 2, 2);
+            var target = new SelectionModel { Source = data };
+
+            target.SelectAll();
+            VerifyCollectionChangedHandlers(1, data);
+
+            target.Dispose();
+
+            VerifyCollectionChangedHandlers(0, data);
+        }
+
+        [Fact]
+        public void Clearing_Selection_Unhooks_CollectionChanged_Handlers()
+        {
+            var data = CreateNestedData(2, 2, 2);
+            var target = new SelectionModel { Source = data };
+
+            target.SelectAll();
+            VerifyCollectionChangedHandlers(1, data);
+
+            target.ClearSelection();
+
+            // Root subscription not unhooked until SelectionModel is disposed.
+            Assert.Equal(1, GetSubscriberCount(data));
+
+            foreach (AvaloniaList<object> i in data)
+            {
+                VerifyCollectionChangedHandlers(0, i);
+            }
+        }
+
+        private int GetSubscriberCount(AvaloniaList<object> list)
+        {
+            return ((INotifyCollectionChangedDebug)list).GetCollectionChangedSubscribers()?.Length ?? 0;
+        }
+
+        private void VerifyCollectionChangedHandlers(int expected, AvaloniaList<object> list)
+        {
+            var count = GetSubscriberCount(list);
+            
+            Assert.Equal(expected, count);
+
+            foreach (var i in list)
+            {
+                if (i is AvaloniaList<object> l)
+                {
+                    VerifyCollectionChangedHandlers(expected, l);
+                }
+            }
+        }
+
         private void Select(SelectionModel manager, int index, bool select)
         {
             Log.Comment((select ? "Selecting " : "DeSelecting ") + index);
@@ -1506,19 +1562,19 @@ namespace Avalonia.Controls.UnitTests
             return contains;
         }
 
-        public static ObservableCollection<object> CreateNestedData(int levels = 3, int groupsAtLevel = 5, int countAtLeaf = 10)
+        public static AvaloniaList<object> CreateNestedData(int levels = 3, int groupsAtLevel = 5, int countAtLeaf = 10)
         {
             var nextData = 0;
             return CreateNestedData(levels, groupsAtLevel, countAtLeaf, ref nextData);
         }
 
-        public static ObservableCollection<object> CreateNestedData(
+        public static AvaloniaList<object> CreateNestedData(
             int levels,
             int groupsAtLevel,
             int countAtLeaf,
             ref int nextData)
         {
-            var data = new ObservableCollection<object>();
+            var data = new AvaloniaList<object>();
             if (levels != 0)
             {
                 for (int i = 0; i < groupsAtLevel; i++)
